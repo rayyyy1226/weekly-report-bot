@@ -9,11 +9,13 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
+// ===== 設定 =====
 const FORUM_CHANNEL_ID = process.env.FORUM_CHANNEL_ID;
 
-// テスト用（true = 毎分 / false = 水曜20時）
-const TEST_MODE = true;
+// ★本番はfalse固定
+const TEST_MODE = false;
 
+// ===== テンプレ =====
 const TEMPLATE = `📌 今週の進捗報告
 
 各自、このテンプレートをコピーして返信してください。
@@ -34,6 +36,7 @@ const TEMPLATE = `📌 今週の進捗報告
 ・
 `;
 
+// ===== 週タイトル =====
 function getWeekRange() {
   const now = new Date();
 
@@ -49,24 +52,26 @@ function getWeekRange() {
   return `${f(start)}〜${f(end)} 週次進捗`;
 }
 
-// ===== Sheets（修正版） =====
+// ===== Google Sheets（修正版） =====
 async function logToSheet(title) {
   try {
-    const auth = new JWT({
+    const doc = new GoogleSpreadsheet(process.env.SHEET_ID);
+
+    // ★新しい認証方式
+    const serviceAccountAuth = new JWT({
       email: process.env.GOOGLE_CLIENT_EMAIL,
       key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
       scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     });
 
-    const doc = new GoogleSpreadsheet(process.env.SHEET_ID, auth);
+    await doc.useAuth(serviceAccountAuth);
 
     await doc.loadInfo();
-
     const sheet = doc.sheetsByIndex[0];
 
     await sheet.addRow({
       date: new Date().toISOString(),
-      title: title,
+      title,
     });
 
     console.log('Sheets OK');
@@ -79,7 +84,8 @@ async function logToSheet(title) {
 client.once('ready', () => {
   console.log(`ログイン成功: ${client.user.tag}`);
 
-  const schedule = TEST_MODE ? '* * * * *' : '0 20 * * 3';
+  // ★週1固定（水曜20時）
+  const schedule = '0 20 * * 3';
 
   cron.schedule(schedule, async () => {
     try {
@@ -93,18 +99,18 @@ client.once('ready', () => {
         }
       });
 
-      console.log('Posted');
+      console.log('フォーラム投稿成功');
 
       await logToSheet(title);
 
     } catch (err) {
-      console.error('Error:', err);
+      console.error('投稿エラー:', err);
     }
   }, {
     timezone: 'Asia/Tokyo'
   });
 
-  console.log(TEST_MODE ? 'TEST MODE（毎分）' : 'PROD MODE');
+  console.log('本番モード：毎週水曜20時実行');
 });
 
 client.login(process.env.DISCORD_TOKEN);
