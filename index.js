@@ -3,6 +3,7 @@ require('dotenv').config();
 const { Client, GatewayIntentBits } = require('discord.js');
 const cron = require('node-cron');
 const { GoogleSpreadsheet } = require('google-spreadsheet');
+const { JWT } = require('google-auth-library');
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
@@ -10,7 +11,7 @@ const client = new Client({
 
 const FORUM_CHANNEL_ID = process.env.FORUM_CHANNEL_ID;
 
-// テスト用
+// テスト用（true = 毎分 / false = 水曜20時）
 const TEST_MODE = true;
 
 const TEMPLATE = `📌 今週の進捗報告
@@ -48,22 +49,24 @@ function getWeekRange() {
   return `${f(start)}〜${f(end)} 週次進捗`;
 }
 
-// ===== Sheets（最新版対応） =====
+// ===== Sheets（修正版） =====
 async function logToSheet(title) {
   try {
-    const doc = new GoogleSpreadsheet(process.env.SHEET_ID);
-
-    await doc.useServiceAccountAuth({
-      client_email: process.env.GOOGLE_CLIENT_EMAIL,
-      private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+    const auth = new JWT({
+      email: process.env.GOOGLE_CLIENT_EMAIL,
+      key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     });
 
+    const doc = new GoogleSpreadsheet(process.env.SHEET_ID, auth);
+
     await doc.loadInfo();
+
     const sheet = doc.sheetsByIndex[0];
 
     await sheet.addRow({
       date: new Date().toISOString(),
-      title,
+      title: title,
     });
 
     console.log('Sheets OK');
@@ -72,6 +75,7 @@ async function logToSheet(title) {
   }
 }
 
+// ===== 起動 =====
 client.once('ready', () => {
   console.log(`ログイン成功: ${client.user.tag}`);
 
@@ -100,7 +104,7 @@ client.once('ready', () => {
     timezone: 'Asia/Tokyo'
   });
 
-  console.log(TEST_MODE ? 'TEST MODE' : 'PROD MODE');
+  console.log(TEST_MODE ? 'TEST MODE（毎分）' : 'PROD MODE');
 });
 
 client.login(process.env.DISCORD_TOKEN);
