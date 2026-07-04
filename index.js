@@ -1,4 +1,5 @@
 require('dotenv').config();
+
 const { Client, GatewayIntentBits } = require('discord.js');
 const cron = require('node-cron');
 const { GoogleSpreadsheet } = require('google-spreadsheet');
@@ -10,6 +11,11 @@ const client = new Client({
 // ===== フォーラムID =====
 const FORUM_CHANNEL_ID = '1522824733236658337';
 
+// ===== テスト切替 =====
+// true = 毎分実行（テスト）
+// false = 水曜20時
+const TEST_MODE = true;
+
 // ===== テンプレ =====
 const TEMPLATE = `📌 今週の進捗報告
 
@@ -19,7 +25,7 @@ const TEMPLATE = `📌 今週の進捗報告
 ・
 
 ■ 今週の進捗
-例：QUWON｜カードデザイン済・外箱デザイン中
+・
 
 ■ 来週やること
 ・
@@ -47,27 +53,29 @@ function getWeekRange() {
   return `${f(start)}〜${f(end)} 週次進捗`;
 }
 
-// ===== Google Sheets =====
+// ===== Google Sheets（修正版） =====
 async function logToSheet(title) {
   try {
     const doc = new GoogleSpreadsheet(process.env.SHEET_ID);
 
+    // ⚠️ ここ重要：Googleの標準認証形式
     await doc.useServiceAccountAuth({
       client_email: process.env.GOOGLE_CLIENT_EMAIL,
-      private_key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
     });
 
     await doc.loadInfo();
+
     const sheet = doc.sheetsByIndex[0];
 
     await sheet.addRow({
       date: new Date().toISOString(),
-      title: title
+      title: title,
     });
 
-    console.log('Sheets記録完了');
+    console.log('📊 Sheets記録成功');
   } catch (err) {
-    console.error('Sheetsエラー:', err);
+    console.error('❌ Sheetsエラー:', err);
   }
 }
 
@@ -75,16 +83,15 @@ async function logToSheet(title) {
 client.once('ready', () => {
   console.log(`ログイン成功: ${client.user.tag}`);
 
-  // 水曜20時
+  const schedule = TEST_MODE ? '* * * * *' : '0 20 * * 3';
+
   cron.schedule(
-    '0 20 * * 3',
+    schedule,
     async () => {
       try {
         const channel = await client.channels.fetch(FORUM_CHANNEL_ID);
-
         const title = getWeekRange();
 
-        // フォーラム投稿
         await channel.threads.create({
           name: title,
           message: {
@@ -92,19 +99,20 @@ client.once('ready', () => {
           }
         });
 
-        console.log('フォーラム投稿成功');
+        console.log('🟢 フォーラム投稿成功');
 
-        // Sheets記録
         await logToSheet(title);
 
       } catch (err) {
-        console.error('投稿エラー:', err);
+        console.error('❌ 投稿エラー:', err);
       }
     },
     {
       timezone: 'Asia/Tokyo'
     }
   );
+
+  console.log(TEST_MODE ? '🧪 テストモード（毎分実行）' : '📅 本番モード（水曜20時）');
 });
 
 client.login(process.env.DISCORD_TOKEN);
