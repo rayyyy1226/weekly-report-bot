@@ -72,7 +72,6 @@ client.once('ready', () => {
         });
 
         console.log('フォーラム投稿成功');
-
       } catch (err) {
         console.error('投稿エラー:', err);
       }
