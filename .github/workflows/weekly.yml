@@ -1,8 +1,8 @@
-name: weekly-discord-bot
+name: weekly-report-bot
 
 on:
   schedule:
-    - cron: '0 11 * * 3'
+    - cron: '0 11 * * 3' # 日本時間20:00（水）
   workflow_dispatch:
 
 jobs:
@@ -10,15 +10,19 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: checkout
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: setup node
+        uses: actions/setup-node@v4
         with:
           node-version: 20
 
-      - run: npm install
+      - name: install
+        run: npm install
 
-      - run: node index.js
+      - name: run bot
         env:
           DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
           FORUM_CHANNEL_ID: ${{ secrets.FORUM_CHANNEL_ID }}
+        run: node index.js
