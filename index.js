@@ -2,19 +2,24 @@ require('dotenv').config();
 
 const { Client, GatewayIntentBits } = require('discord.js');
 const cron = require('node-cron');
+const express = require('express');
 
+// ======================
+// Discord Bot
+// ======================
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
-// ===== 環境変数 =====
 const FORUM_CHANNEL_ID = process.env.FORUM_CHANNEL_ID;
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 
-// ===== 本番モード（週1）=====
+// テストモード（trueにすると毎分）
 const TEST_MODE = false;
 
-// ===== テンプレ =====
+// ======================
+// フォーラムテンプレ
+// ======================
 const TEMPLATE = `📌 今週の進捗報告
 
 各自、このテンプレートをコピーして返信してください。
@@ -35,7 +40,9 @@ const TEMPLATE = `📌 今週の進捗報告
 ・
 `;
 
-// ===== 週タイトル =====
+// ======================
+// 週タイトル
+// ======================
 function getWeekRange() {
   const now = new Date();
 
@@ -51,7 +58,9 @@ function getWeekRange() {
   return `${format(start)}〜${format(end)} 週次進捗`;
 }
 
-// ===== 起動 =====
+// ======================
+// Discord起動
+// ======================
 client.once('ready', () => {
   console.log(`ログイン成功: ${client.user.tag}`);
 
@@ -81,7 +90,21 @@ client.once('ready', () => {
     }
   );
 
-  console.log(TEST_MODE ? 'テストモード（毎分実行）' : '本番モード（週1）');
+  console.log(TEST_MODE ? 'テストモード（毎分）' : '本番モード（週1）');
 });
 
 client.login(DISCORD_TOKEN);
+
+// ======================
+// Render用 HTTPサーバー（重要）
+// ======================
+const app = express();
+
+app.get('/', (req, res) => {
+  res.send('bot is running');
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log('HTTP server running on port', PORT);
+});
