@@ -2,17 +2,16 @@ require('dotenv').config();
 
 const { Client, GatewayIntentBits } = require('discord.js');
 const cron = require('node-cron');
-const { GoogleSpreadsheet } = require('google-spreadsheet');
-const { JWT } = require('google-auth-library');
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
-// ===== 設定 =====
+// ===== 環境変数 =====
 const FORUM_CHANNEL_ID = process.env.FORUM_CHANNEL_ID;
+const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 
-// ★本番はfalse固定
+// ===== 本番モード（週1）=====
 const TEST_MODE = false;
 
 // ===== テンプレ =====
@@ -46,71 +45,44 @@ function getWeekRange() {
   const end = new Date(start);
   end.setDate(start.getDate() + 6);
 
-  const f = (d) =>
+  const format = (d) =>
     `${d.getFullYear()}/${d.getMonth() + 1}/${d.getDate()}`;
 
-  return `${f(start)}〜${f(end)} 週次進捗`;
-}
-
-// ===== Google Sheets（修正版） =====
-async function logToSheet(title) {
-  try {
-    const doc = new GoogleSpreadsheet(process.env.SHEET_ID);
-
-    // ★新しい認証方式
-    const serviceAccountAuth = new JWT({
-      email: process.env.GOOGLE_CLIENT_EMAIL,
-      key: process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n'),
-      scopes: ['https://www.googleapis.com/auth/spreadsheets'],
-    });
-
-    await doc.useAuth(serviceAccountAuth);
-
-    await doc.loadInfo();
-    const sheet = doc.sheetsByIndex[0];
-
-    await sheet.addRow({
-      date: new Date().toISOString(),
-      title,
-    });
-
-    console.log('Sheets OK');
-  } catch (err) {
-    console.error('Sheets error:', err);
-  }
+  return `${format(start)}〜${format(end)} 週次進捗`;
 }
 
 // ===== 起動 =====
 client.once('ready', () => {
   console.log(`ログイン成功: ${client.user.tag}`);
 
-  // ★週1固定（水曜20時）
-  const schedule = '0 20 * * 3';
+  const schedule = TEST_MODE ? '* * * * *' : '0 20 * * 3';
 
-  cron.schedule(schedule, async () => {
-    try {
-      const channel = await client.channels.fetch(FORUM_CHANNEL_ID);
-      const title = getWeekRange();
+  cron.schedule(
+    schedule,
+    async () => {
+      try {
+        const channel = await client.channels.fetch(FORUM_CHANNEL_ID);
+        const title = getWeekRange();
 
-      await channel.threads.create({
-        name: title,
-        message: {
-          content: `@everyone\n\n${TEMPLATE}`
-        }
-      });
+        await channel.threads.create({
+          name: title,
+          message: {
+            content: `@everyone\n\n${TEMPLATE}`
+          }
+        });
 
-      console.log('フォーラム投稿成功');
+        console.log('フォーラム投稿成功');
 
-      await logToSheet(title);
-
-    } catch (err) {
-      console.error('投稿エラー:', err);
+      } catch (err) {
+        console.error('投稿エラー:', err);
+      }
+    },
+    {
+      timezone: 'Asia/Tokyo'
     }
-  }, {
-    timezone: 'Asia/Tokyo'
-  });
+  );
 
-  console.log('本番モード：毎週水曜20時実行');
+  console.log(TEST_MODE ? 'テストモード（毎分実行）' : '本番モード（週1）');
 });
 
-client.login(process.env.DISCORD_TOKEN);
+client.login(DISCORD_TOKEN);
