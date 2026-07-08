@@ -2,7 +2,7 @@ name: weekly-report-bot
 
 on:
   schedule:
-    - cron: '0 11 * * 3' # 日本時間20:00（水）
+    - cron: '*/5 * * * *'
   workflow_dispatch:
 
 jobs:
