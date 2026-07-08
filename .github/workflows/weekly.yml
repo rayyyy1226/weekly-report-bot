@@ -1,8 +1,8 @@
-name: weekly-report-bot-test
+name: weekly-report-bot
 
 on:
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: '0 11 * * 3' # 日本時間 水曜20:00
   workflow_dispatch:
 
 jobs:
