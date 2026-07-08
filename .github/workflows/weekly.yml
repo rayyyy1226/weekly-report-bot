@@ -1,4 +1,4 @@
-name: weekly-report-bot
+name: weekly-report-bot-test
 
 on:
   schedule:
